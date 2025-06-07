@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  password        String
+  name            String
+  role            Role      @default(PASSENGER)
+  phone           String?
+  rides           Ride[]    @relation("DriverRides")
+  bookings        Booking[]
+  notifications   Notification[]
+  ratingsGiven    Rating[]  @relation("RatingFromUser")
+  ratingsReceived Rating[]  @relation("RatingToUser")
+  createdAt       DateTime  @default(now())
+}
+
+
+model Ride {
+  id          Int        @id @default(autoincrement())
+  from        String
+  to          String
+  date        DateTime
+  time        String
+  price       Float
+  seats       Int
+  driverId    Int
+  driver      User       @relation("DriverRides", fields: [driverId], references: [id])
+  bookings    Booking[]
+  ratings     Rating[]   // ✅ Add this line
+  createdAt   DateTime   @default(now())
+}
+
+
+model Booking {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  rideId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  ride      Ride      @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  status    String   @default("PENDING") // "PENDING", "ACCEPTED", "REJECTED"
+  createdAt DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int    
+  message   String
+  type      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Rating {
+  id         Int      @id @default(autoincrement())
+  rideId     Int
+  ride       Ride     @relation(fields: [rideId], references: [id])
+  fromUserId Int
+  fromUser   User     @relation("RatingFromUser", fields: [fromUserId], references: [id])
+  toUserId   Int
+  toUser     User     @relation("RatingToUser", fields: [toUserId], references: [id])
+  score      Int      // 1 to 5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  @@unique([rideId, fromUserId, toUserId])
+}
+
+
+
+enum Role {
+  DRIVER
+  PASSENGER
+}
