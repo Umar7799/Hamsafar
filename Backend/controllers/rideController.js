@@ -91,19 +91,19 @@ const searchRides = async (req, res) => {
         to: { contains: to, mode: 'insensitive' },
         ...(dateFrom || dateTo
           ? {
-              date: {
-                ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
-                ...(dateTo ? { lte: new Date(dateTo) } : {}),
-              },
-            }
+            date: {
+              ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+              ...(dateTo ? { lte: new Date(dateTo) } : {}),
+            },
+          }
           : {}),
         ...(priceMin || priceMax
           ? {
-              price: {
-                ...(priceMin ? { gte: parseFloat(priceMin) } : {}),
-                ...(priceMax ? { lte: parseFloat(priceMax) } : {}),
-              },
-            }
+            price: {
+              ...(priceMin ? { gte: parseFloat(priceMin) } : {}),
+              ...(priceMax ? { lte: parseFloat(priceMax) } : {}),
+            },
+          }
           : {}),
       },
       include: {
@@ -236,7 +236,7 @@ const getDriverRides = async (req, res) => {
         bookings: {
           include: {
             user: {
-              select: { name: true, email: true, phone: true }
+              select: { id: true, name: true, email: true, phone: true }
             }
           }
         }

@@ -8,6 +8,7 @@ const authenticateToken = require('./middleware/authMiddleware');
 const rideRoutes = require('./routes/rides');
 const bookingRoutes = require('./routes/bookings');
 const ratingRoutes = require('./routes/ratings');
+const messagingRoutes = require('./routes/messaging');
 
 
 const app = express();
@@ -22,6 +23,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rides', rideRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/ratings', ratingRoutes);
+app.use('/api/conversations', messagingRoutes);
+
+
 
 
 // ✅ Protected route

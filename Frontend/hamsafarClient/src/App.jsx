@@ -12,8 +12,7 @@ import EditRide from './pages/EditRide';
 import RideDetail from './pages/RideDetail';
 import BookingDetail from './pages/BookingDetail';
 import Profile from './pages/Profile';
-
-
+import Messages from './pages/Messages';
 
 const App = () => (
   <AuthProvider>
@@ -31,6 +30,7 @@ const App = () => (
         <Route path="/rides/:id" element={<RideDetail />} />
         <Route path="/bookings/ride/:rideId" element={<BookingDetail />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/messages/:otherUserId" element={<Messages />} />
       </Routes>
     </BrowserRouter>
   </AuthProvider>

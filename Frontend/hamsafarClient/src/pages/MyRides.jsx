@@ -79,17 +79,30 @@ const MyRides = () => {
                 <div className="mt-4">
                   <h4 className="font-medium mb-2">Passengers:</h4>
                   <ul className="space-y-2 pl-4 list-disc text-gray-700">
-                    {ride.bookings.map((b) => (
+                    {ride.bookings?.map((b) => (
                       <li key={b.id}>
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                           <span>{b.user?.name}</span>
                           <span className="text-sm font-semibold">Status: {b.status}</span>
                         </div>
 
-                        {/* Show phone number only if booking is accepted */}
-                        {b.status === 'ACCEPTED' && b.user?.phone && (
-                          <div className="text-sm text-gray-600">📞 {b.user.phone}</div>
+                        {b.status === 'ACCEPTED' && (
+                          <div className="text-sm text-gray-600 space-y-1">
+                            {b.user?.phone && <div>📞 {b.user.phone}</div>}
+
+                          </div>
                         )}
+
+                        {b.status === 'ACCEPTED' && b.user?.id && (
+                          <Link
+                            to={`/messages/${b.user.id}`}
+                            className="text-sm text-blue-500 underline mt-1 inline-block"
+                          >
+                            💬 Message Passenger
+                          </Link>
+                        )}
+
+
 
                         {/* Action buttons for pending bookings */}
                         {b.status === 'PENDING' && (
