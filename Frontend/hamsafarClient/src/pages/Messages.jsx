@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/axios';
 import { useAuth } from '../hooks/useAuth';
+import socket from '../socket';
 
 const Messages = () => {
     const { otherUserId } = useParams();
@@ -9,7 +10,16 @@ const Messages = () => {
     const [conversation, setConversation] = useState(null);
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState('');
+    const [typingUser, setTypingUser] = useState(false);
     const scrollRef = useRef(null);
+    const typingTimeoutRef = useRef(null);
+
+    // ✅ Join user-specific socket room for notifications (optional)
+    useEffect(() => {
+        if (user?.id) {
+            socket.emit('join_user_room', user.id);
+        }
+    }, [user]);
 
     // ✅ Initialize or get existing conversation
     useEffect(() => {
@@ -18,10 +28,7 @@ const Messages = () => {
 
             try {
                 const res = await api.post('/conversations', {
-                    participantIds: [
-                        parseInt(user.id, 10),
-                        parseInt(otherUserId, 10),
-                    ],
+                    participantIds: [parseInt(user.id, 10), parseInt(otherUserId, 10)],
                 });
                 setConversation(res.data);
             } catch (err) {
@@ -49,22 +56,72 @@ const Messages = () => {
         };
 
         fetchMessages();
-        const interval = setInterval(fetchMessages, 5000);
-        return () => clearInterval(interval);
     }, [conversation]);
 
-    // ✅ Send a message
+    // ✅ Socket.IO join and message listeners
+    useEffect(() => {
+        if (!conversation?.id) return;
+
+        socket.emit('join_conversation', conversation.id);
+
+        const handleNewMessage = (msg) => {
+            setMessages((prev) => [...prev, msg]);
+            scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        const handleTyping = ({ userId }) => {
+            if (userId !== user?.id) setTypingUser(true);
+        };
+
+        const handleStopTyping = ({ userId }) => {
+            if (userId !== user?.id) setTypingUser(false);
+        };
+
+        socket.on('new_message', handleNewMessage);
+        socket.on('typing', handleTyping);
+        socket.on('stop_typing', handleStopTyping);
+
+        return () => {
+            socket.off('new_message', handleNewMessage);
+            socket.off('typing', handleTyping);
+            socket.off('stop_typing', handleStopTyping);
+            socket.emit('leave_conversation', conversation.id);
+        };
+    }, [conversation, user]);
+
+    // ✅ Emit typing events
+    useEffect(() => {
+        if (!conversation?.id || !user?.id) return;
+
+        const handleTyping = () => {
+            socket.emit('typing', { conversationId: conversation.id, userId: user.id });
+
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+                socket.emit('stop_typing', { conversationId: conversation.id, userId: user.id });
+            }, 1500);
+        };
+
+        const handleKeyDown = () => handleTyping();
+
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            clearTimeout(typingTimeoutRef.current);
+        };
+    }, [conversation, user]);
+
+    // ✅ Send message
     const handleSend = async () => {
         if (!text.trim() || !conversation?.id) return;
 
         try {
-            const res = await api.post('/conversations/messages', {
+            await api.post('/conversations/messages', {
                 conversationId: conversation.id,
                 text,
             });
-            setMessages((prev) => [...prev, res.data]);
             setText('');
-            scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
         } catch (err) {
             console.error('🔴 handleSend error:', err);
             alert('Message failed to send');
@@ -87,6 +144,9 @@ const Messages = () => {
                         <div className="text-sm">{msg.text}</div>
                     </div>
                 ))}
+                {typingUser && (
+                    <div className="text-sm text-gray-500 mt-1">Typing...</div>
+                )}
                 <div ref={scrollRef} />
             </div>
             <div className="mt-4 flex">

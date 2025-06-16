@@ -19,11 +19,10 @@ model User {
   notifications   Notification[]
   ratingsGiven    Rating[]       @relation("RatingFromUser")
   ratingsReceived Rating[]       @relation("RatingToUser")
-
-  messages      Message[]      @relation("UserMessages")
-  conversations Conversation[] @relation("ConversationParticipants")
-
-  createdAt DateTime @default(now())
+  messages        Message[]      @relation("UserMessages")
+  conversations   Conversation[] @relation("ConversationParticipants")
+  createdAt       DateTime       @default(now())
+  messageReads    MessageRead[]  @relation("UserReads")
 }
 
 model Ride {
@@ -91,6 +90,19 @@ model Message {
   conversationId Int
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   createdAt      DateTime     @default(now())
+
+  reads MessageRead[]
+}
+
+model MessageRead {
+  id        Int      @id @default(autoincrement())
+  message   Message  @relation(fields: [messageId], references: [id])
+  messageId Int
+  reader    User     @relation("UserReads", fields: [readerId], references: [id]) // ✅ ADD RELATION NAME
+  readerId  Int
+  readAt    DateTime @default(now())
+
+  @@unique([messageId, readerId])
 }
 
 enum Role {
