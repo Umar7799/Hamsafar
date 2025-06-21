@@ -106,8 +106,9 @@ const sendMessage = async (req, res) => {
     }
   
     try {
-      const io = getIO();  // ✅ get socket.io instance here
+      const io = getIO(); // ✅ Socket.IO instance
   
+      // ✅ Save message to DB
       const message = await prisma.message.create({
         data: {
           text,
@@ -124,8 +125,10 @@ const sendMessage = async (req, res) => {
         }
       });
   
+      // ✅ Emit to users in the conversation room
       io.to(`conversation_${conversationId}`).emit('new_message', message);
   
+      // ✅ Notify other participants privately
       const conversation = await prisma.conversation.findUnique({
         where: { id: conversationId },
         include: { participants: true }
@@ -141,12 +144,16 @@ const sendMessage = async (req, res) => {
           });
         });
   
-      res.status(201).json(message);
+      return res.status(201).json(message);
     } catch (err) {
       console.error('🔴 Error sending message:', err);
-      res.status(500).json({ message: 'Failed to send message', error: err.message });
+      return res.status(500).json({
+        message: 'Failed to send message',
+        error: err.message
+      });
     }
   };
+  
   
 
 // GET /conversations/:id/messages
