@@ -85,12 +85,33 @@ const getUserConversations = async (req, res) => {
       }
     });
 
-    res.json(conversations);
+    // Now, add unreadCount for each conversation
+    const enriched = await Promise.all(conversations.map(async convo => {
+      const unreadCount = await prisma.message.count({
+        where: {
+          conversationId: convo.id,
+          senderId: { not: userId },
+          reads: {
+            none: {
+              readerId: userId
+            }
+          }
+        }
+      });
+
+      return {
+        ...convo,
+        unreadCount
+      };
+    }));
+
+    res.json(enriched);
   } catch (err) {
     console.error('🔴 Error fetching conversations:', err);
     res.status(500).json({ message: 'Failed to fetch conversations', error: err.message });
   }
 };
+
 
 // POST /messages
 const sendMessage = async (req, res) => {
@@ -186,9 +207,106 @@ const getMessages = async (req, res) => {
   }
 };
 
+// GET /conversations/unread-count
+const getUnreadMessageCount = async (req, res) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+    // Find messages the user hasn't read yet
+    const unreadCount = await prisma.message.count({
+      where: {
+        conversation: {
+          participants: {
+            some: { id: userId }
+          }
+        },
+        senderId: { not: userId },
+        reads: {
+          none: {
+            readerId: userId
+          }
+        }
+      }
+    });
+
+    res.json({ unreadCount });
+  } catch (err) {
+    console.error('🔴 Error fetching unread count:', err);
+    res.status(500).json({ message: 'Failed to fetch unread count', error: err.message });
+  }
+};
+
+
+// POST /conversations/:id/mark-as-read
+const markConversationAsRead = async (req, res) => {
+  const conversationId = parseInt(req.params.id, 10);
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  if (isNaN(conversationId)) {
+    return res.status(400).json({ message: 'Invalid conversation ID' });
+  }
+
+  try {
+    // Mark unread messages in this conversation as read by this user
+    // Assuming you have a 'reads' relation tracking which users have read which messages
+
+    // Find all unread messages for this user in the conversation
+    const unreadMessages = await prisma.message.findMany({
+      where: {
+        conversationId,
+        senderId: { not: userId },  // messages not sent by the user
+        reads: {
+          none: {
+            readerId: userId
+          }
+        }
+      },
+      select: { id: true }
+    });
+
+    // Create reads entries for each unread message
+    const readEntries = unreadMessages.map(msg => ({
+      messageId: msg.id,
+      readerId: userId,
+      readAt: new Date()
+    }));
+
+    if (readEntries.length > 0) {
+      await prisma.messageRead.createMany({
+        data: readEntries,
+        skipDuplicates: true,
+      });
+      
+    }
+
+    // Optionally emit an event via socket.io that messages have been read
+    const io = getIO();
+    io.to(`conversation_${conversationId}`).emit('messages_read', {
+      conversationId,
+      readerId: userId,
+      messageIds: unreadMessages.map(m => m.id)
+    });
+
+    res.json({ success: true, markedReadCount: readEntries.length });
+  } catch (err) {
+    console.error('🔴 Error marking conversation as read:', err);
+    res.status(500).json({ message: 'Failed to mark conversation as read', error: err.message });
+  }
+};
+
 module.exports = {
   createConversation,
   getUserConversations,
   sendMessage,
-  getMessages
+  getMessages,
+  getUnreadMessageCount,
+  markConversationAsRead,
 };

@@ -13,9 +13,11 @@ import RideDetail from './pages/RideDetail';
 import BookingDetail from './pages/BookingDetail';
 import Profile from './pages/Profile';
 import Messages from './pages/Messages';
+import Chats from './pages/Chats';
 import socket from './socket';
 import { useAuth } from './hooks/useAuth';
 import AuthProvider from './context/AuthProvider'
+import { NotificationProvider } from './context/NotificationContext';
 
 const NotificationListener = () => {
   const { user } = useAuth(); // ✅ Always call hooks top-level
@@ -33,7 +35,7 @@ const NotificationListener = () => {
         payload?.type === 'message' &&
         !location.pathname.includes(`/messages/${payload.data.sender.id}`)
       ) {
-        alert(payload.message); // ✅ Replace with toast for better UX
+        // alert(payload.message); // ✅ Replace with toast for better UX
       }
     };
 
@@ -63,6 +65,8 @@ const AppRoutes = () => (
       <Route path="/bookings/ride/:rideId" element={<BookingDetail />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/messages/:otherUserId" element={<Messages />} />
+      <Route path="/chats" element={<Chats />} />
+
     </Routes>
   </>
 );
@@ -70,7 +74,9 @@ const AppRoutes = () => (
 const App = () => (
   <AuthProvider>
     <BrowserRouter>
-      <AppRoutes />
+      <NotificationProvider>
+        <AppRoutes />
+      </NotificationProvider>
     </BrowserRouter>
   </AuthProvider>
 );

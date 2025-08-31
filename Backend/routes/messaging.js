@@ -4,7 +4,9 @@ const {
   createConversation,
   getUserConversations,
   sendMessage,
-  getMessages
+  getMessages,
+  getUnreadMessageCount,
+  markConversationAsRead,
 } = require('../controllers/messagingController');
 
 // ✅ Consistent name
@@ -17,5 +19,6 @@ router.post('/', createConversation);
 router.get('/', getUserConversations);
 router.post('/messages', sendMessage);
 router.get('/:id/messages', getMessages);
-
+router.get('/unread-count', getUnreadMessageCount);
+router.post('/:id/mark-as-read', markConversationAsRead);
 module.exports = router;

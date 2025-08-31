@@ -4,9 +4,14 @@ import api from '../api/axios';
 import { useAuth } from '../hooks/useAuth';
 import socket from '../socket';
 
+// ✅ NEW: import useNotification
+import { useNotification } from '../context/useNotification';
+
 const Messages = () => {
     const { otherUserId } = useParams();
     const { user } = useAuth();
+    const { fetchUnreadCount } = useNotification(); // ✅ NEW
+
     const [conversation, setConversation] = useState(null);
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState('');
@@ -14,14 +19,12 @@ const Messages = () => {
     const scrollRef = useRef(null);
     const typingTimeoutRef = useRef(null);
 
-    // ✅ Join user-specific socket room for notifications (optional)
     useEffect(() => {
         if (user?.id) {
             socket.emit('join_user_room', user.id);
         }
     }, [user]);
 
-    // ✅ Initialize or get existing conversation
     useEffect(() => {
         const initConversation = async () => {
             if (!user?.id || !otherUserId) return;
@@ -40,7 +43,6 @@ const Messages = () => {
         initConversation();
     }, [user, otherUserId]);
 
-    // ✅ Fetch messages for this conversation
     useEffect(() => {
         const fetchMessages = async () => {
             if (!conversation?.id) return;
@@ -49,6 +51,10 @@ const Messages = () => {
                 const res = await api.get(`/conversations/${conversation.id}/messages`);
                 setMessages(res.data);
                 scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+                // ✅ NEW: Mark as read and update unread count
+                await api.post(`/conversations/${conversation.id}/mark-as-read`);
+                fetchUnreadCount(); // ✅
             } catch (err) {
                 console.error('🔴 fetchMessages error:', err);
                 alert('Could not load messages');
@@ -56,18 +62,29 @@ const Messages = () => {
         };
 
         fetchMessages();
-    }, [conversation]);
+    }, [conversation, fetchUnreadCount]); // ✅ Add dependency
 
-    // ✅ Socket.IO join and message listeners
     useEffect(() => {
         if (!conversation?.id) return;
 
         socket.emit('join_conversation', conversation.id);
 
-        const handleNewMessage = (msg) => {
+        const handleNewMessage = async (msg) => {
             setMessages((prev) => [...prev, msg]);
             scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-        };
+          
+            // 🔥 If message is from the other user, mark as read immediately
+            if (msg.sender.id !== user?.id) {
+              try {
+                await api.post(`/conversations/${conversation.id}/mark-as-read`);
+                fetchUnreadCount(); // ✅ Update navbar
+                window.dispatchEvent(new Event('messagesRead')); // ✅ in case Chats.jsx listens
+              } catch (err) {
+                console.error('Failed to mark as read:', err);
+              }
+            }
+          };
+          
 
         const handleTyping = ({ userId }) => {
             if (userId !== user?.id) setTypingUser(true);
@@ -87,9 +104,8 @@ const Messages = () => {
             socket.off('stop_typing', handleStopTyping);
             socket.emit('leave_conversation', conversation.id);
         };
-    }, [conversation, user]);
+    }, [conversation, user, fetchUnreadCount]); // ✅ Add dependency
 
-    // ✅ Emit typing events
     useEffect(() => {
         if (!conversation?.id || !user?.id) return;
 
@@ -112,7 +128,6 @@ const Messages = () => {
         };
     }, [conversation, user]);
 
-    // ✅ Send message
     const handleSend = async () => {
         if (!text.trim() || !conversation?.id) return;
 
